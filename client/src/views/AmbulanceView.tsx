@@ -244,7 +244,7 @@ export const AmbulanceView: React.FC<AmbulanceViewProps> = ({
       </div>
 
       {/* Right / Map Area */}
-      <div className="flex-1 h-full min-h-[450px]">
+      <div className="flex-1 h-full min-h-[480px] flex flex-col">
         <Map
           nodes={nodes}
           nodeStates={nodeStates}

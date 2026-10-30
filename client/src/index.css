@@ -12,11 +12,13 @@ html, body, #root {
   overflow-x: hidden;
 }
 
-/* Leaflet fix for custom markers and clean dark/slate tiles */
+/* Ensure Leaflet container always fills its space and has non-zero height */
 .leaflet-container {
-  height: 100%;
-  width: 100%;
-  background: #0f172a;
+  height: 100% !important;
+  width: 100% !important;
+  min-height: 480px !important;
+  background: #0f172a !important;
+  z-index: 1;
 }
 
 /* Custom map pulse animations */

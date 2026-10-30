@@ -14,6 +14,23 @@ interface MapProps {
   followAmbulance?: boolean;
 }
 
+// Invalidate size on mount to ensure tiles render immediately
+function MapResizeHandler() {
+  const map = useMap();
+
+  useEffect(() => {
+    map.invalidateSize();
+    const t1 = setTimeout(() => map.invalidateSize(), 150);
+    const t2 = setTimeout(() => map.invalidateSize(), 500);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [map]);
+
+  return null;
+}
+
 // Controller to smoothly pan to selected node or ambulance
 function MapController({
   telemetry,
@@ -27,10 +44,21 @@ function MapController({
   const map = useMap();
 
   useEffect(() => {
-    if (selectedNode) {
-      map.setView([selectedNode.lat, selectedNode.lng], 15, { animate: true });
-    } else if (followAmbulance && telemetry && telemetry.lat && telemetry.lng) {
-      map.panTo([telemetry.lat, telemetry.lng], { animate: true, duration: 0.8 });
+    if (!map) return;
+    try {
+      if (selectedNode && selectedNode.lat != null && selectedNode.lng != null) {
+        map.setView([selectedNode.lat, selectedNode.lng], 15, { animate: true });
+      } else if (followAmbulance && telemetry && telemetry.lat != null && telemetry.lng != null) {
+        // Safe check for map initialization
+        // @ts-expect-error _loaded is a Leaflet internal state
+        if (map._loaded) {
+          map.panTo([telemetry.lat, telemetry.lng], { animate: true, duration: 0.5 });
+        } else {
+          map.setView([telemetry.lat, telemetry.lng], map.getZoom() || 13);
+        }
+      }
+    } catch (err) {
+      console.warn('MapController navigation error:', err);
     }
   }, [selectedNode, telemetry?.lat, telemetry?.lng, followAmbulance, map]);
 
@@ -64,14 +92,14 @@ export const Map: React.FC<MapProps> = ({
 
   // Route Polyline coordinates
   const polylinePositions = useMemo(() => {
-    return nodes
+    return (nodes || [])
       .slice()
       .sort((a, b) => a.route_order - b.route_order)
       .map((node) => [node.lat, node.lng] as [number, number]);
   }, [nodes]);
 
   const selectedNode = useMemo(() => {
-    return nodes.find((n) => n.id === selectedNodeId) || null;
+    return (nodes || []).find((n) => n.id === selectedNodeId) || null;
   }, [nodes, selectedNodeId]);
 
   // Ambulance DivIcon with orientation heading
@@ -85,8 +113,8 @@ export const Map: React.FC<MapProps> = ({
         <div style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
           ${
             isAlerting
-              ? '<div style="position: absolute; width: 48px; height: 48px; border-radius: 9999px; background: rgba(239, 68, 68, 0.4); animation: pulse-ring 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>'
-              : '<div style="position: absolute; width: 40px; height: 40px; border-radius: 9999px; background: rgba(59, 130, 246, 0.3);"></div>'
+              ? '<div style="position: absolute; width: 48px; height: 48px; border-radius: 9999px; background: rgba(239, 68, 68, 0.5); animation: pulse-ring 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>'
+              : '<div style="position: absolute; width: 40px; height: 40px; border-radius: 9999px; background: rgba(59, 130, 246, 0.35);"></div>'
           }
           <div style="
             transform: rotate(${heading}deg);
@@ -99,7 +127,7 @@ export const Map: React.FC<MapProps> = ({
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.6);
           ">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${isAlerting ? '#dc2626' : '#2563eb'}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1 .4-1 1v9h2"></path>
@@ -166,7 +194,7 @@ export const Map: React.FC<MapProps> = ({
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
           ">
             ${node.route_order}
           </div>
@@ -178,17 +206,23 @@ export const Map: React.FC<MapProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full min-h-[420px] rounded-xl overflow-hidden border border-slate-700/60 shadow-xl bg-slate-950">
+    <div
+      className="relative w-full h-full rounded-xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950 flex flex-col"
+      style={{ minHeight: '480px', height: '100%', width: '100%' }}
+    >
       <MapContainer
         center={defaultCenter}
         zoom={13}
         scrollWheelZoom={true}
-        className="w-full h-full"
+        className="w-full h-full flex-1"
+        style={{ height: '100%', width: '100%', minHeight: '480px' }}
       >
+        <MapResizeHandler />
+
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          className="map-tiles"
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
         />
 
         <MapController
@@ -207,7 +241,7 @@ export const Map: React.FC<MapProps> = ({
               pathOptions={{
                 color: '#38bdf8',
                 weight: 5,
-                opacity: 0.85,
+                opacity: 0.9,
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
@@ -217,15 +251,15 @@ export const Map: React.FC<MapProps> = ({
               positions={polylinePositions}
               pathOptions={{
                 color: '#0284c7',
-                weight: 10,
-                opacity: 0.25,
+                weight: 12,
+                opacity: 0.3,
               }}
             />
           </>
         )}
 
         {/* Junction Markers & Alert Radii */}
-        {nodes.map((node) => {
+        {(nodes || []).map((node) => {
           const live = nodeStates.get(node.id);
           const state = live?.state || 'idle';
 
@@ -234,13 +268,13 @@ export const Map: React.FC<MapProps> = ({
 
           if (state === 'approaching') {
             radiusColor = '#f59e0b'; // amber
-            fillOpacity = 0.22;
+            fillOpacity = 0.25;
           } else if (state === 'alert') {
             radiusColor = '#ef4444'; // red
-            fillOpacity = 0.35;
+            fillOpacity = 0.4;
           } else if (state === 'cleared') {
             radiusColor = '#10b981'; // green
-            fillOpacity = 0.15;
+            fillOpacity = 0.18;
           }
 
           const isSelected = selectedNodeId === node.id;
@@ -298,7 +332,7 @@ export const Map: React.FC<MapProps> = ({
         })}
 
         {/* Live Ambulance Marker */}
-        {telemetry && telemetry.lat && telemetry.lng && (
+        {telemetry && telemetry.lat != null && telemetry.lng != null && (
           <Marker position={[telemetry.lat, telemetry.lng]} icon={ambulanceIcon} zIndexOffset={1000}>
             <Popup>
               <div className="p-1 text-slate-900">

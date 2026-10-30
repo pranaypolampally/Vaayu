@@ -327,7 +327,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           <span className="text-[11px] text-indigo-400 font-medium">Auto-draws route polyline</span>
         </div>
 
-        <div className="flex-1">
+        <div className="flex-1 min-h-[480px] flex flex-col">
           <Map
             nodes={nodes}
             nodeStates={nodeStates}
