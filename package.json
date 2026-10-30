@@ -1,0 +1,15 @@
+{
+  "name": "vaayu",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vaayu - GPS-based ambulance priority signal management system",
+  "scripts": {
+    "dev": "concurrently -n \"SERVER,CLIENT\" -c \"blue,green\" \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm start",
+    "dev:client": "cd client && npm run dev",
+    "test": "cd server && npm test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
